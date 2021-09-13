@@ -59,7 +59,7 @@ class SMTPMail : public drogon::Plugin<SMTPMail>
         const std::string &content,  // The email content.
         const std::string &user,     // User      (Usually same as "from")
         const std::string &passwd,   // Password
-        bool isHTML, // content type
+        bool isHTML,                 // content type
         const std::function<void(const std::string &)> &cb = {}
         // The callback for email sent notification
     );

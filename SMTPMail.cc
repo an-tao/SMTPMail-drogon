@@ -84,7 +84,7 @@ struct EMail
           m_passwd(passwd),
           m_socket(socket),
           m_isHTML(isHTML),
-          m_uuid(utils::getUuid())
+          m_uuid(drogon::utils::getUuid())
     {
         m_status = Init;
     }
@@ -154,8 +154,7 @@ void messagesHandle(const trantor::TcpConnectionPtr &connPtr,
         out.append(outMsg.data(), outMsg.size());
 
         connPtr->startClientEncryption(
-            [connPtr, out]()
-            {
+            [connPtr, out]() {
                 // LOG_TRACE << "SSL established";
                 connPtr->send(std::move(out));
             },
@@ -201,7 +200,7 @@ void messagesHandle(const trantor::TcpConnectionPtr &connPtr,
 
         // outMsg.append(base64_encode(reinterpret_cast<const unsigned
         // char*>(screte.c_str()), screte.length()));
-        outMsg.append(utils::base64Encode(
+        outMsg.append(drogon::utils::base64Encode(
             reinterpret_cast<const unsigned char *>(screte.c_str()),
             screte.length()));
 
@@ -220,7 +219,7 @@ void messagesHandle(const trantor::TcpConnectionPtr &connPtr,
 
         std::string screte(email->m_passwd);
 
-        outMsg.append(utils::base64Encode(
+        outMsg.append(drogon::utils::base64Encode(
             reinterpret_cast<const unsigned char *>(screte.c_str()),
             screte.length()));
         outMsg.append("\r\n");
@@ -282,7 +281,7 @@ void messagesHandle(const trantor::TcpConnectionPtr &connPtr,
 
         outMsg.append("To: " + email->m_to + "\r\n");
         outMsg.append("From: " + email->m_from + "\r\n");
-        if(email->m_isHTML)
+        if (email->m_isHTML)
         {
             outMsg.append("Content-Type: text/html;\r\n");
         }
@@ -355,9 +354,7 @@ std::string SMTPMail::sendEmail(
 
     auto resolver = app().getResolver();
     resolver->resolve(
-        mailServer,
-        [email, port, cb](const trantor::InetAddress &addr)
-        {
+        mailServer, [email, port, cb](const trantor::InetAddress &addr) {
             auto loop = app().getIOLoop(10);  // Get the IO Loop
             assert(loop);                     // Should never be null
             trantor::InetAddress addr_(addr.toIp(), port, false);
@@ -371,8 +368,7 @@ std::string SMTPMail::sendEmail(
             EMail::m_emails.emplace(
                 email->m_uuid, email);  // Assuming there is no uuid collision
             tcpSocket->setConnectionCallback(
-                [email_wptr](const trantor::TcpConnectionPtr &connPtr)
-                {
+                [email_wptr](const trantor::TcpConnectionPtr &connPtr) {
                     auto email_ptr = email_wptr.lock();
                     if (!email_ptr)
                     {
@@ -392,28 +388,25 @@ std::string SMTPMail::sendEmail(
                         // thisPtr->onError(std::string("ReqResult::NetworkFailure"));
                     }
                 });
-            tcpSocket->setConnectionErrorCallback(
-                [email_wptr]()
+            tcpSocket->setConnectionErrorCallback([email_wptr]() {
+                auto email_ptr = email_wptr.lock();
+                if (!email_ptr)
                 {
-                    auto email_ptr = email_wptr.lock();
-                    if (!email_ptr)
-                    {
-                        LOG_ERROR << "EMail pointer gone";
-                        return;
-                    }
-                    // can't connect to server
-                    LOG_ERROR << "Bad Server address";
-                    EMail::m_emails.erase(
-                        email_ptr->m_uuid);  // Remove the email in list
-                    // thisPtr->onError(std::string("ReqResult::BadServerAddress"));
-                });
-            auto cb_(cb ? cb
-                        : [](const std::string &msg)
-                         { LOG_INFO << "Default email callback : " << msg; });
+                    LOG_ERROR << "EMail pointer gone";
+                    return;
+                }
+                // can't connect to server
+                LOG_ERROR << "Bad Server address";
+                EMail::m_emails.erase(
+                    email_ptr->m_uuid);  // Remove the email in list
+                // thisPtr->onError(std::string("ReqResult::BadServerAddress"));
+            });
+            auto cb_(cb ? cb : [](const std::string &msg) {
+                LOG_INFO << "Default email callback : " << msg;
+            });
             tcpSocket->setMessageCallback(
                 [email_wptr, cb_](const trantor::TcpConnectionPtr &connPtr,
-                                  trantor::MsgBuffer *msg)
-                {
+                                  trantor::MsgBuffer *msg) {
                     auto email_ptr = email_wptr.lock();
                     if (!email_ptr)
                     {
